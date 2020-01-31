@@ -34,16 +34,16 @@ def keyboardCallback(key, x, y):
     elif key == b'q': 
         sys.exit()
 
-    if __name__ == "__main__":
-         glut.glutInit()
-         glut.glutInitDisplayMode(glut.GLUT_DOUBLE | glut.GLUT_RGBA | glut.GLUT_DEPTH)
-         glut.glutInitWindowSize(512, 512)
-         glut.glutInitWindowPosition(100, 100)
-         glut.glutCreateWindow('Example window')
-         glut.glutDisplayFunc(displayCallback)
-         glut.glutIdleFunc(displayCallback)
-         glut.glutReshapeFunc(reshapeCallback)
-         glut.glutKeyboardFunc(keyboardCallback)
+if __name__ == "__main__":
+        glut.glutInit()
+        glut.glutInitDisplayMode(glut.GLUT_DOUBLE | glut.GLUT_RGBA | glut.GLUT_DEPTH)
+        glut.glutInitWindowSize(512, 512)
+        glut.glutInitWindowPosition(100, 100)
+        glut.glutCreateWindow('Example window')
+        glut.glutDisplayFunc(displayCallback)
+        glut.glutIdleFunc(displayCallback)
+        glut.glutReshapeFunc(reshapeCallback)
+        glut.glutKeyboardFunc(keyboardCallback)
 
 
 # Create image
