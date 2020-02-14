@@ -13,9 +13,9 @@ cudaError_t calcDotProductWithCuda(int *c, const int *a, const int *b, unsigned 
 
 int main()
 {
-    const int arraySize = 8;
-    const int a[arraySize] = { 2, 2, 2, 2, 2, 2, 2, 2 };
-    const int b[arraySize] = { 2, 2, 2, 2, 2, 2, 2, 2 };
+    const int arraySize = 4;
+    const int a[arraySize] = { 2, 2, 2, 2 };
+    const int b[arraySize] = { 2, 2, 2, 2 };
     int c[arraySize] = { 0 };
 
     // Add vectors in parallel.
@@ -40,11 +40,15 @@ int main()
     return 0;
 }
 
-__shared__ int blockNumbers[4];
+#define THREADS_PER_BLOCK 2
+
+
+__shared__ int blockNumbers[THREADS_PER_BLOCK];
 
 __global__
 void calcDotProdKernel(int * c, const int *b, const int * a)
-{	
+{		
+
 	int i = blockIdx.x * blockDim.x + threadIdx.x;		
 
 	c[i] = a[i] * b[i];	
@@ -114,7 +118,7 @@ cudaError_t calcDotProductWithCuda(int *c, const int *a, const int *b, unsigned 
     }
 
     // Launch a kernel on the GPU with one thread for each element.
-    calcDotProdKernel<<<2, 4>>>(dev_c, dev_b , dev_a);
+    calcDotProdKernel<<<size/THREADS_PER_BLOCK, THREADS_PER_BLOCK>>>(dev_c, dev_b , dev_a);
 
     // Check for any errors launching the kernel
     cudaStatus = cudaGetLastError();
