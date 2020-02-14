@@ -12,6 +12,30 @@ __global__ void addKernel(int *c, const int *a, const int *b)
     c[i] = a[i] + b[i];
 }
 
+
+__shared__ int rowSumation[4];
+
+__global__
+void addMatrixChunk(int *a)
+{
+	int threadMax = threadIdx.x + 4;
+	int sum = 0;
+	for (unsigned char i = 0; i < threadMax; i++)
+	{
+		sum += a[threadIdx.y][i];
+	}
+
+	rowSumation[threadIdx.y] = sum;
+
+	__syncthreads();
+
+	int sumOfRows = 0;
+	for (unsigned char i = 0; i < 4; i++)
+	{
+
+	}
+}
+
 int main()
 {
     const int arraySize = 5;
