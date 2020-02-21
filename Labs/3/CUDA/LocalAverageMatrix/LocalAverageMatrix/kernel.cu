@@ -12,27 +12,39 @@ __global__ void addKernel(int *c, const int *a, const int *b)
     c[i] = a[i] + b[i];
 }
 
+#define SUB_GRID_WIDTH 4
+#define SUB_GRID_HEIGHT 4
 
-__shared__ int rowSumation[4];
+
+
+__shared__ float rowSumation[SUB_GRID_HEIGHT];
+
 
 __global__
 void addMatrixChunk(int *a)
-{
-	int threadMax = threadIdx.x + 4;
-	int sum = 0;
-	for (unsigned char i = 0; i < threadMax; i++)
+{	
+	float sum = 0;
+	int start = threadIdx.x * SUB_GRID_WIDTH;
+	int i = 0;
+	for (i = start; i < start + SUB_GRID_WIDTH; i++) 
 	{
-		sum += a[threadIdx.y][i];
+		sum += a[blockIdx.x];
+	}
+	rowSumation[threadIdx.x] = sum;
+
+	__syncthreads();	
+
+	sum = 0;
+	for (i = 0; i < SUB_GRID_HEIGHT; i++)
+	{
+		sum += rowSumation[i];
 	}
 
-	rowSumation[threadIdx.y] = sum;
+	float average = sum / SUB_GRID_HEIGHT * SUB_GRID_WIDTH;
 
-	__syncthreads();
-
-	int sumOfRows = 0;
-	for (unsigned char i = 0; i < 4; i++)
+	for (i = 0; i < SUB_GRID_HEIGHT * SUB_GRID_WIDTH; i++)
 	{
-
+		a[i] = average;
 	}
 }
 
