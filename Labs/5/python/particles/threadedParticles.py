@@ -10,7 +10,7 @@ global timer_counter
 class Particle:
     def __init__(self):
         self.X = 0
-        self.Y = 0
+        self.Y = 0                
 
 
 def create_particle_array(items):
@@ -53,7 +53,6 @@ def timer_thread_func():
         print("sleep now")
         time.sleep(1)
         timer_counter += 1
-        print("                                   ----------------   ", timer_counter)
         if timer_counter > 10:
             loop = False
 
