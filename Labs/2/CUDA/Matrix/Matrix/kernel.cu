@@ -20,12 +20,16 @@ void addKernel(int *c, const int *a, const int *b)
 }
 
 __global__
-void addMarticesKernel(int **resultMatrix, const int **matrixA, const int **matrixB)
+void addMarticesKernel(int *resultMatrix, const int *matrixA, const int *matrixB)
 {
 	int x = threadIdx.x + (threadIdx.y * blockDim.x);
 	int y = threadIdx.y;
 
-	resultMatrix[x][y] = matrixA[x][y] + matrixB[x][y];
+	int **a = (int**)*matrixA;
+	int **b = (int**)*matrixA;
+	int **c = (int**)resultMatrix;
+
+	c[0][0] = a[0][0] + b[0][0];
 }
 
 void cudaAddingExample()
@@ -143,7 +147,7 @@ void addMatricesWithCuda(const int a[][3], const int b[][3], int c[][3])
 		cleanUpMatrixOperation(pA, pB, pC);
 	}
 
-	addMarticesKernel<<<1, dim3(3, 3) >>>((int**)pC, (const int**)&pA, (const int**)&pB);
+	addMarticesKernel<<<1, dim3(3, 3) >>>(pC, pA, pB);
 
 	// 4. Check for any errors launching the kernel
 	cudaStatus = cudaGetLastError();
