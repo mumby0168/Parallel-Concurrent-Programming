@@ -1,0 +1,2 @@
+# Cuda Memory Model
+
