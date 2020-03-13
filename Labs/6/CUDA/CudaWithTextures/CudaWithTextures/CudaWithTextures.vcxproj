@@ -84,6 +84,11 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="bicubicTexture_kernel.cuh" />
+    <ClInclude Include="hitable.h" />
+    <ClInclude Include="hitable_list.h" />
+    <ClInclude Include="Ray.h" />
+    <ClInclude Include="sphere.h" />
+    <ClInclude Include="vec3.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="bicubicTexture.cpp" />
