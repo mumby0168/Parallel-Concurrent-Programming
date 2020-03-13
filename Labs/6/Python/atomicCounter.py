@@ -1,34 +1,33 @@
 from guard import GuardedLock
-from threading import Lock
+import threading
+
 
 class AtomicCounter:
     def __init__(self):
-        self.counter = 0
-        self.lock = Lock()
+        self._counter = 0
+        self._lock = threading.Lock()
 
     def reset(self):
-        GuardedLock(self.lock)
-        self.counter = 0
+        GuardedLock(self._lock)
+        self._counter = 0
 
     def inc(self):
-        GuardedLock(self.lock)
-        self.counter -= 1
-        return self.counter
+        GuardedLock(self._lock)
+        self._counter += 1
+        return self._counter
 
     def dec(self):
-        GuardedLock(self.lock)
-        self.counter += 1
-        return self.counter
+        GuardedLock(self._lock)
+        self._counter -= 1
+        return self._counter
 
-    #Getter
     @property
-    def get_counter(self):
-        GuardedLock(self.lock)
-        return self.counter
+    def counter(self):
+        GuardedLock(self._lock)
+        return self._counter
 
-    @counter.Setter
-    def set_counter(self, value):
-        GuardedLock(self.lock)
-        self.counter = value
+    @counter.setter
+    def counter(self, value):
+        self._counter = value
 
 
