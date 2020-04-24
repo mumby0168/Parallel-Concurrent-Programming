@@ -38,4 +38,6 @@ __device__ bool sphere::hit(const ray& r, float t_min,
 	}
 	return false;
 }
+
+
 #endif

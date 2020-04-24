@@ -1,4 +1,45 @@
+/**
+ * Copyright 1993-2015 NVIDIA Corporation.  All rights reserved.
+ *
+ * Please refer to the NVIDIA end user license agreement (EULA) associated
+ * with this source code for terms and conditions that govern your use of
+ * this software. Any use, reproduction, disclosure, or distribution of
+ * this software and related documentation outside the terms of the EULA
+ * is strictly prohibited.
+ *
+ */
 
+ /*
+	 Bicubic texture filtering sample
+	 sgreen 6/2008
+
+	 This sample demonstrates how to efficiently implement bicubic texture
+	 filtering in CUDA.
+
+	 Bicubic filtering is a higher order interpolation method that produces
+	 smoother results than bilinear interpolation:
+	 http://en.wikipedia.org/wiki/Bicubic
+
+	 It requires reading a 4 x 4 pixel neighbourhood rather than the
+	 2 x 2 area required by bilinear filtering.
+
+	 Current graphics hardware doesn't support bicubic filtering natively,
+	 but it is possible to compose a bicubic filter using just 4 bilinear
+	 lookups by offsetting the sample position within each texel and weighting
+	 the samples correctly. The only disadvantage to this method is that the
+	 hardware only maintains 9-bits of filtering precision within each texel.
+
+	 See "Fast Third-Order Texture Filtering", Sigg & Hadwiger, GPU Gems 2:
+	 http://developer.nvidia.com/object/gpu_gems_2_home.html
+
+	 v1.1 - updated to include the brute force method using 16 texture lookups.
+	 v1.2 - added Catmull-Rom interpolation
+
+	 Example performance results from GeForce 8800 GTS:
+	 Bilinear     - 5500 MPixels/sec
+	 Bicubic      - 1400 MPixels/sec
+	 Fast Bicubic - 2100 MPixels/sec
+ */
 
  // OpenGL Graphics includes
 #include <helper_gl.h>
@@ -49,8 +90,36 @@ char **pArgv = NULL;
 
 static const char *sSDKsample = "CUDA BicubicTexture";
 
+// Define the files that are to be save and the reference images for validation
+const char *sFilterMode[] =
+{
+	"Nearest",
+	"Bilinear",
+	"Bicubic",
+	"Fast Bicubic",
+	"Catmull-Rom",
+	NULL
+};
 
+const char *sOriginal[] =
+{
+	"0_nearest.ppm",
+	"1_bilinear.ppm",
+	"2_bicubic.ppm",
+	"3_fastbicubic.ppm",
+	"4_catmull-rom.ppm",
+	NULL
+};
 
+const char *sReference[] =
+{
+	"0_nearest.ppm",
+	"1_bilinear.ppm",
+	"2_bicubic.ppm",
+	"3_fastbicubic.ppm",
+	"4_catmull-rom.ppm",
+	NULL
+};
 
 const char *srcImageFilename = "lena_bw.pgm";
 char *dumpFilename = NULL;
@@ -59,6 +128,16 @@ uint width = 512, height = 512;
 uint imageWidth, imageHeight;
 dim3 blockSize(16, 16);
 dim3 gridSize(width / blockSize.x, height / blockSize.y);
+
+enum eFilterMode
+{
+	MODE_NEAREST,
+	MODE_BILINEAR,
+	MODE_BICUBIC,
+	MODE_FAST_BICUBIC,
+	MODE_CATMULL_ROM,
+	NUM_MODES
+};
 
 //eFilterMode g_FilterMode = MODE_FAST_BICUBIC;
 
@@ -88,8 +167,7 @@ extern "C" void loadImageData(int argc, char **argv);
 extern "C" void initTexture(int imageWidth, int imageHeight, uchar *h_data);
 extern "C" void freeTexture();
 extern "C" void render(int width, int height, dim3 blockSize, dim3 gridSize,
-uchar4 *output);
-
+uchar4 *output);
 
 
 
@@ -162,8 +240,6 @@ void display()
 	size_t num_bytes;
 	checkCudaErrors(cudaGraphicsResourceGetMappedPointer((void **)&d_output, &num_bytes,
 		cuda_pbo_resource));
-
-
 	render(imageWidth, imageHeight, blockSize, gridSize, d_output);
 
 	checkCudaErrors(cudaGraphicsUnmapResources(1, &cuda_pbo_resource, 0));
@@ -405,6 +481,15 @@ void mainMenu(int i)
 void initMenus()
 {
 	glutCreateMenu(mainMenu);
+	glutAddMenuEntry("Nearest      [1]", '1');
+	glutAddMenuEntry("Bilinear     [2]", '2');
+	glutAddMenuEntry("Bicubic      [3]", '3');
+	glutAddMenuEntry("Fast Bicubic [4]", '4');
+	glutAddMenuEntry("Catmull-Rom  [5]", '5');
+	glutAddMenuEntry("Zoom in      [=]", '=');
+	glutAddMenuEntry("Zoom out     [-]", '-');
+	glutAddMenuEntry("Benchmark    [b]", 'b');
+	glutAddMenuEntry("DrawCurves   [c]", 'c');
 	glutAddMenuEntry("Quit       [esc]", 27);
 	glutAttachMenu(GLUT_RIGHT_BUTTON);
 }

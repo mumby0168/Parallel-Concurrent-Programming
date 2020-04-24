@@ -199,11 +199,11 @@ void render(int width, int height,
 	checkCudaErrors(cudaMalloc((void **)&d_list, 2 * sizeof(hitable *)));
 	hitable **d_world;
 	checkCudaErrors(cudaMalloc((void **)&d_world, sizeof(hitable *)));
-	create_world <<<1,1>>> (d_list, d_world);
+	create_world << <1, 1 >> > (d_list, d_world);
 	checkCudaErrors(cudaGetLastError());
 	checkCudaErrors(cudaDeviceSynchronize());
 	// call CUDA kernel, writing results to PBO memory
-	d_render <<<gridSize, blockSize>>> (output, width, height, d_world);
+	d_render << <gridSize, blockSize >> > (output, width, height, d_world);
 
 	getLastCudaError("kernel failed");
 }
