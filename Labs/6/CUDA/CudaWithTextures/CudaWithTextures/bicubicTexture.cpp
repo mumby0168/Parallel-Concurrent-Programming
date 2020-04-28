@@ -46,56 +46,13 @@ char **pArgv = NULL;
 #define MAX_EPSILON_ERROR 5.0f
 #define REFRESH_DELAY     10 //ms
 
-static const char *sSDKsample = "CUDA BicubicTexture";
 
-// Define the files that are to be save and the reference images for validation
-const char *sFilterMode[] =
-{
-	"Nearest",
-	"Bilinear",
-	"Bicubic",
-	"Fast Bicubic",
-	"Catmull-Rom",
-	NULL
-};
-
-const char *sOriginal[] =
-{
-	"0_nearest.ppm",
-	"1_bilinear.ppm",
-	"2_bicubic.ppm",
-	"3_fastbicubic.ppm",
-	"4_catmull-rom.ppm",
-	NULL
-};
-
-const char *sReference[] =
-{
-	"0_nearest.ppm",
-	"1_bilinear.ppm",
-	"2_bicubic.ppm",
-	"3_fastbicubic.ppm",
-	"4_catmull-rom.ppm",
-	NULL
-};
-
-const char *srcImageFilename = "lena_bw.pgm";
-char *dumpFilename = NULL;
 
 uint width = 512, height = 512;
 uint imageWidth, imageHeight;
 dim3 blockSize(16, 16);
 dim3 gridSize(width / blockSize.x, height / blockSize.y);
 
-enum eFilterMode
-{
-	MODE_NEAREST,
-	MODE_BILINEAR,
-	MODE_BICUBIC,
-	MODE_FAST_BICUBIC,
-	MODE_CATMULL_ROM,
-	NUM_MODES
-};
 
 //eFilterMode g_FilterMode = MODE_FAST_BICUBIC;
 
@@ -130,27 +87,7 @@ uchar4 *output);
 
 
 
-// w0, w1, w2, and w3 are the four cubic B-spline basis functions
-float bspline_w0(float a)
-{
-	return (1.0f / 6.0f)*(-a * a*a + 3.0f*a*a - 3.0f*a + 1.0f);
-}
 
-float bspline_w1(float a)
-{
-	return (1.0f / 6.0f)*(3.0f*a*a*a - 6.0f*a*a + 4.0f);
-}
-
-float bspline_w2(float a)
-{
-	return (1.0f / 6.0f)*(-3.0f*a*a*a + 3.0f*a*a + 3.0f*a + 1.0f);
-}
-
-__host__ __device__
-float bspline_w3(float a)
-{
-	return (1.0f / 6.0f)*(a*a*a);
-}
 
 void computeFPS()
 {
@@ -174,20 +111,6 @@ void computeFPS()
 	}
 }
 
-void plotCurve(float(*func)(float))
-{
-	const int steps = 100;
-	glBegin(GL_LINE_STRIP);
-
-	for (int i = 0; i < steps; i++)
-	{
-		float x = i / (float)(steps - 1);
-		glVertex2f(x, func(x));
-	}
-
-	glEnd();
-}
-
 // display results using OpenGL (called by GLUT)
 void display()
 {
@@ -199,6 +122,8 @@ void display()
 	size_t num_bytes;
 	checkCudaErrors(cudaGraphicsResourceGetMappedPointer((void **)&d_output, &num_bytes,
 		cuda_pbo_resource));
+
+
 	render(imageWidth, imageHeight, blockSize, gridSize, d_output);
 
 	checkCudaErrors(cudaGraphicsUnmapResources(1, &cuda_pbo_resource, 0));
@@ -231,31 +156,6 @@ void display()
 
 		glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
 
-		if (drawCurves)
-		{
-			// draw spline curves
-			glPushMatrix();
-			glScalef(0.25, 0.25, 1.0);
-
-			glTranslatef(0.0, 2.0, 0.0);
-			glColor3f(1.0, 0.0, 0.0);
-			plotCurve(bspline_w3);
-
-			glTranslatef(1.0, 0.0, 0.0);
-			glColor3f(0.0, 1.0, 0.0);
-			plotCurve(bspline_w2);
-
-			glTranslatef(1.0, 0.0, 0.0);
-			glColor3f(0.0, 0.0, 1.0);
-			plotCurve(bspline_w1);
-
-			glTranslatef(1.0, 0.0, 0.0);
-			glColor3f(1.0, 0.0, 1.0);
-			plotCurve(bspline_w0);
-
-			glPopMatrix();
-			glColor3f(1.0, 1.0, 1.0);
-		}
 	}
 
 	glutSwapBuffers();
@@ -407,22 +307,6 @@ void mainMenu(int i)
 	keyboard(i, 0, 0);
 }
 
-void initMenus()
-{
-	glutCreateMenu(mainMenu);
-	glutAddMenuEntry("Nearest      [1]", '1');
-	glutAddMenuEntry("Bilinear     [2]", '2');
-	glutAddMenuEntry("Bicubic      [3]", '3');
-	glutAddMenuEntry("Fast Bicubic [4]", '4');
-	glutAddMenuEntry("Catmull-Rom  [5]", '5');
-	glutAddMenuEntry("Zoom in      [=]", '=');
-	glutAddMenuEntry("Zoom out     [-]", '-');
-	glutAddMenuEntry("Benchmark    [b]", 'b');
-	glutAddMenuEntry("DrawCurves   [c]", 'c');
-	glutAddMenuEntry("Quit       [esc]", 27);
-	glutAttachMenu(GLUT_RIGHT_BUTTON);
-}
-
 
 
 // fragment program for reading from buffer texture
@@ -458,7 +342,6 @@ GLuint compileASMShader(GLenum program_type, const char *code)
 
 void initialize(int argc, char **argv)
 {
-	printf("[%s] (OpenGL Mode)\n", sSDKsample);
 
 	initGL(&argc, argv);
 
@@ -473,21 +356,6 @@ void initialize(int argc, char **argv)
 	// Create the timer (for fps measurement)
 	sdkCreateTimer(&timer);
 	
-
-	printf("\n"
-		"\tControls\n"
-		"\t=/- : Zoom in/out\n"
-		"\tb   : Run Benchmark g_FilterMode\n"
-		"\tc   : Draw Bicubic Spline Curve\n"
-		"\t[esc] - Quit\n\n"
-
-		"\tPress number keys to change filtering g_FilterMode:\n\n"
-		"\t1 : nearest filtering\n"
-		"\t2 : bilinear filtering\n"
-		"\t3 : bicubic filtering\n"
-		"\t4 : fast bicubic filtering\n"
-		"\t5 : Catmull-Rom filtering\n\n"
-	);
 
 	initGLBuffers();
 
@@ -506,7 +374,7 @@ void initGL(int *argc, char **argv)
 	glutInit(argc, argv);
 	glutInitDisplayMode(GLUT_RGBA | GLUT_ALPHA | GLUT_DOUBLE | GLUT_DEPTH);
 	glutInitWindowSize(width, height);
-	glutCreateWindow("CUDA bicubic texture filtering");
+	glutCreateWindow("Particle Simulation");
 	glutDisplayFunc(display);
 	glutKeyboardFunc(keyboard);
 	glutMouseFunc(mouse);
@@ -519,8 +387,6 @@ void initGL(int *argc, char **argv)
 #else
 	glutCloseFunc(cleanup);
 #endif
-
-	initMenus();
 
 	if (!isGLVersionSupported(2, 0) ||
 		!areGLExtensionsSupported("GL_ARB_pixel_buffer_object"))
@@ -544,53 +410,23 @@ void initGL(int *argc, char **argv)
 }
 
 
-void
-printHelp()
-{
-	printf("bicubicTexture Usage:\n");
-	printf("\t-file=output.ppm (output file to save to disk)\n");
-	printf("\t-mode=n (0=Nearest, 1=Bilinear, 2=Bicubic, 3=Fast-Bicubic, 4=Catmull-Rom\n");
-}
-
 
 
 ////////////////////////////////////////////////////////////////////////////////
 // Program main
 ////////////////////////////////////////////////////////////////////////////////
-int
-main(int argc, char **argv)
+int main(int argc, char **argv)
 {
-	pArgc = &argc;
-	pArgv = argv;
-
-	// parse arguments
-	char *filename;
 
 #if defined(__linux__)
 	setenv("DISPLAY", ":0", 0);
 #endif
 
-	printf("Starting bicubicTexture\n");
+	printf("Starting Particle Simulation\n");
 
-	if (checkCmdLineFlag(argc, (const char **)argv, "help"))
-	{
-		printHelp();
-		exit(EXIT_SUCCESS);
-	}
-	
-
-	if (getCmdLineArgumentString(argc, (const char **)argv, "file", &filename))
-	{
-		dumpFilename = filename;
-		fpsLimit = frameCheckNumber;
-		
-	}
-	else
-	{
-		// This runs the CUDA kernel (bicubicFiltering) + OpenGL visualization
-		initialize(argc, argv);
-		glutMainLoop();
-	}
+	// This runs the CUDA kernel (bicubicFiltering) + OpenGL visualization
+	initialize(argc, argv);
+	glutMainLoop();
 
 	exit(EXIT_SUCCESS);
 }
