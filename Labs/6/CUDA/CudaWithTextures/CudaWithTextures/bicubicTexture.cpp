@@ -1,45 +1,4 @@
-/**
- * Copyright 1993-2015 NVIDIA Corporation.  All rights reserved.
- *
- * Please refer to the NVIDIA end user license agreement (EULA) associated
- * with this source code for terms and conditions that govern your use of
- * this software. Any use, reproduction, disclosure, or distribution of
- * this software and related documentation outside the terms of the EULA
- * is strictly prohibited.
- *
- */
 
- /*
-	 Bicubic texture filtering sample
-	 sgreen 6/2008
-
-	 This sample demonstrates how to efficiently implement bicubic texture
-	 filtering in CUDA.
-
-	 Bicubic filtering is a higher order interpolation method that produces
-	 smoother results than bilinear interpolation:
-	 http://en.wikipedia.org/wiki/Bicubic
-
-	 It requires reading a 4 x 4 pixel neighbourhood rather than the
-	 2 x 2 area required by bilinear filtering.
-
-	 Current graphics hardware doesn't support bicubic filtering natively,
-	 but it is possible to compose a bicubic filter using just 4 bilinear
-	 lookups by offsetting the sample position within each texel and weighting
-	 the samples correctly. The only disadvantage to this method is that the
-	 hardware only maintains 9-bits of filtering precision within each texel.
-
-	 See "Fast Third-Order Texture Filtering", Sigg & Hadwiger, GPU Gems 2:
-	 http://developer.nvidia.com/object/gpu_gems_2_home.html
-
-	 v1.1 - updated to include the brute force method using 16 texture lookups.
-	 v1.2 - added Catmull-Rom interpolation
-
-	 Example performance results from GeForce 8800 GTS:
-	 Bilinear     - 5500 MPixels/sec
-	 Bicubic      - 1400 MPixels/sec
-	 Fast Bicubic - 2100 MPixels/sec
- */
 
  // OpenGL Graphics includes
 #include <helper_gl.h>
@@ -67,7 +26,6 @@
 typedef unsigned int uint;
 typedef unsigned char uchar;
 
-#define USE_BUFFER_TEX 1 //TODO: Step 1
 #ifndef MAX
 #define MAX(a,b) ((a < b) ? b : a)
 #endif
@@ -167,7 +125,8 @@ extern "C" void loadImageData(int argc, char **argv);
 extern "C" void initTexture(int imageWidth, int imageHeight, uchar *h_data);
 extern "C" void freeTexture();
 extern "C" void render(int width, int height, dim3 blockSize, dim3 gridSize,
-uchar4 *output);
+uchar4 *output);
+
 
 
 
@@ -249,21 +208,11 @@ void display()
 		// display results
 		glClear(GL_COLOR_BUFFER_BIT);
 
-#if USE_BUFFER_TEX
 		// display using buffer texture
 		glBindTexture(GL_TEXTURE_BUFFER_EXT, bufferTex);
 		glBindProgramARB(GL_FRAGMENT_PROGRAM_ARB, fprog);
 		glEnable(GL_FRAGMENT_PROGRAM_ARB);
 		glProgramLocalParameterI4iNV(GL_FRAGMENT_PROGRAM_ARB, 0, width, 0, 0, 0);
-#else
-		// download image from PBO to OpenGL texture
-		glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, pbo);
-		glBindTexture(GL_TEXTURE_TYPE, displayTex);
-		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-		glTexSubImage2D(GL_TEXTURE_TYPE,
-			0, 0, 0, width, height, GL_BGRA, GL_UNSIGNED_BYTE, 0);
-		glEnable(GL_TEXTURE_TYPE);
-#endif
 
 		// draw textured quad
 		glDisable(GL_DEPTH_TEST);
@@ -408,12 +357,8 @@ void cleanup()
 
 	glDeleteBuffers(1, &pbo);
 
-#if USE_BUFFER_TEX
 	glDeleteTextures(1, &bufferTex);
 	glDeleteProgramsARB(1, &fprog);
-#else
-	glDeleteTextures(1, &displayTex);
-#endif
 
 	sdkDeleteTimer(&timer);
 }
@@ -441,7 +386,6 @@ void initGLBuffers()
 	checkCudaErrors(cudaGraphicsGLRegisterBuffer(&cuda_pbo_resource, pbo,
 		cudaGraphicsMapFlagsWriteDiscard));
 
-#if USE_BUFFER_TEX
 
 	// create buffer texture, attach to pbo
 	if (bufferTex)
@@ -453,21 +397,6 @@ void initGLBuffers()
 	glBindTexture(GL_TEXTURE_BUFFER_EXT, bufferTex);
 	glTexBufferEXT(GL_TEXTURE_BUFFER_EXT, GL_RGBA8, pbo);
 	glBindTexture(GL_TEXTURE_BUFFER_EXT, 0);
-#else
-
-	// create texture for display
-	if (displayTex)
-	{
-		glDeleteTextures(1, &displayTex);
-	}
-
-	glGenTextures(1, &displayTex);
-	glBindTexture(GL_TEXTURE_TYPE, displayTex);
-	glTexImage2D(GL_TEXTURE_TYPE, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-	glTexParameteri(GL_TEXTURE_TYPE, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_TYPE, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glBindTexture(GL_TEXTURE_TYPE, 0);
-#endif
 
 	// calculate new grid size
 	gridSize = dim3(iDivUp(width, blockSize.x), iDivUp(height, blockSize.y));
@@ -496,7 +425,6 @@ void initMenus()
 
 
 
-#if USE_BUFFER_TEX
 // fragment program for reading from buffer texture
 static const char *shaderCode =
 "!!NVfp4.0\n"
@@ -506,7 +434,6 @@ static const char *shaderCode =
 "MAD.S index.x, index.y, width, index.x;\n" // compute 1D index from 2D coords
 "TXF result.color, index.x, texture[0], BUFFER;\n"
 "END";
-#endif
 
 GLuint compileASMShader(GLenum program_type, const char *code)
 {
@@ -564,7 +491,6 @@ void initialize(int argc, char **argv)
 
 	initGLBuffers();
 
-#if USE_BUFFER_TEX
 	fprog = compileASMShader(GL_FRAGMENT_PROGRAM_ARB, shaderCode);
 
 	if (!fprog)
@@ -572,7 +498,6 @@ void initialize(int argc, char **argv)
 		exit(EXIT_SUCCESS);
 	}
 
-#endif
 }
 
 void initGL(int *argc, char **argv)
@@ -604,7 +529,6 @@ void initGL(int *argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 
-#if USE_BUFFER_TEX
 
 	if (!areGLExtensionsSupported("GL_EXT_texture_buffer_object"))
 	{
@@ -617,8 +541,6 @@ void initGL(int *argc, char **argv)
 		fprintf(stderr, "OpenGL extension: GL_NV_gpu_program4 missing.\n");
 		exit(EXIT_FAILURE);
 	}
-
-#endif
 }
 
 
