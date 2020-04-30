@@ -8,8 +8,12 @@ public:
 	sphere() 
 	{
 		color = make_uchar4(0, 0, 128, 10);
-		center = vec3(0.5, 0.5, 0.5);
-		radius = 0.2;
+		auto x = rand() % 100;
+		auto y = rand() & 100;
+		auto z = rand() & 100;
+
+		center = vec3(x / 100.0, y / 100.0, z / 100.0);
+		radius = 0.1;
 	}
 	__device__ sphere(vec3 cen, float r) : center(cen), radius(r) {};
 	__device__ bool hit(const ray& r, float tmin, float tmax) const;

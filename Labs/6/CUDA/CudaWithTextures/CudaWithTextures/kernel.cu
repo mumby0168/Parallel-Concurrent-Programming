@@ -16,7 +16,7 @@
 #include <helper_math.h>
 
 
-#define PARTICLE_COUNT 1
+#define PARTICLE_COUNT 50
 
  // includes, cuda
 #include <helper_cuda.h>
@@ -140,7 +140,7 @@ d_render(uchar4 *d_output, uint width, uint height, const sphere *spheres)
 
 	u *= 2.0;
 	v *= 2.0;
-	vec3 eye = vec3(0.5, 0.5, 1.5);
+	vec3 eye = vec3(0.5, 0.5, 2);
 	float distFrEye2Img = 1.0;
 	if ((x < width) && (y < height))
 	{		
@@ -151,21 +151,15 @@ d_render(uchar4 *d_output, uint width, uint height, const sphere *spheres)
 		r.Origin = eye;
 		r.Direction = pixelPos - eye; //view direction along negtive z-axis!
 		for (int j = 0; j < PARTICLE_COUNT; j++)
-		{			
-
-			
-
+		{				
 			if (spheres[j].hit(r, 0.0, FLT_MAX))
 			{				
 				//TODO: This may not be best solution as a particle behind could be rendered first. i.e don't return.
 				d_output[i] = spheres[j].color;		
 				return;
-			}
-			else
-			{
-				d_output[i] = make_uchar4(124, 252, 0, 0);
-			}
+			}			
 		}
+		d_output[i] = make_uchar4(124, 252, 0, 0);
 	}			
 }
 
