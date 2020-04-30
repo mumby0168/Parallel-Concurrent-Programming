@@ -1,13 +1,4 @@
-/**
- * Copyright 1993-2015 NVIDIA Corporation.  All rights reserved.
- *
- * Please refer to the NVIDIA end user license agreement (EULA) associated
- * with this source code for terms and conditions that govern your use of
- * this software. Any use, reproduction, disclosure, or distribution of
- * this software and related documentation outside the terms of the EULA
- * is strictly prohibited.
- *
- */
+
 
 
 #ifndef _BICUBICTEXTURE_CU_
@@ -24,11 +15,16 @@
 
 #include <helper_math.h>
 
+
+#define PARTICLE_COUNT 1
+
  // includes, cuda
 #include <helper_cuda.h>
 
 typedef unsigned int uint;
 typedef unsigned char uchar;
+
+sphere spheres[PARTICLE_COUNT];
 
 cudaArray *d_imageArray = 0;
 
@@ -42,18 +38,22 @@ void check_cuda(cudaError_t result, char const *const func, const char *const
 		exit(99);
 	}
 }
-__device__ vec3 castRay(const ray& r, hitable **world) {
-	hit_record rec;
-	if ((*world)->hit(r, 0.0, FLT_MAX, rec)) {
-
-		//TODO: Pick a colour to render when hit
-		return vec3(0.5, 0.5, 0.5);
-	}
-	else {
-		//TODO: render the background colour
-		return vec3(1, 1, 1);
-	}
-}
+//__device__ vec3 castRay(const ray& r, const sphere *spheres) {
+//	hit_record rec;
+//	for (int i = 0; i < PARTICLE_COUNT; i++)
+//	{
+//		if (spheres[i].hit(r, 0.0, FLT_MAX)) {
+//
+//			//TODO: Pick a colour to render when hit
+//			return vec3(0.5, 0.5, 0.5);
+//		}
+//		else {
+//			//TODO: render the background colour
+//			return vec3(1, 1, 1);
+//		}
+//	}
+//	
+//}
 
 __device__ static int ticks = 1;
 
@@ -66,43 +66,42 @@ __device__ static float yPos = 0;
 __device__ static float zStep = 0.001;
 __device__ static float zPos = 0;
 
-__global__ void create_world(hitable **d_list, hitable **d_world) {
-	
-	xPos += xStep;
-	zPos += zStep;
-	yPos += yStep;
 
-	if (xPos > 1)
-	{		
-		xStep = (-xStep);		
-	}
-	if (xPos < -1)
+extern "C" void init_particles()
+{
+	for (int i = 0; i < PARTICLE_COUNT; i++)
 	{
-		xStep = 0.01;
-	}
-	if (zPos > 1)
-	{
-		zStep = (-zStep);
-	}
-	else if (zPos < -1)
-	{
-		zStep = 0.01;
-	}
-	if (yPos > 1)
-	{
-		yStep = (-yStep);
-	}
-	else if (yPos < -1)
-	{
-		yStep = 0.01;
-	}
-
-
-	if (threadIdx.x == 0 && blockIdx.x == 0) {
-		*(d_list) = new sphere(vec3(xPos,yPos,zPos), 0.2);	
-		*d_world = new hitable_list(d_list, 1);
+		spheres[i] = sphere();
 	}
 }
+
+
+
+__global__ void move_particles()
+{
+
+}
+
+__global__ void bound_particles()
+{
+
+}
+
+__global__ void colour_particles()
+{
+
+}
+
+
+////TODO: Possibly change this to check every particles boundaries.
+//__global__ void create_world(hitable **d_list, hitable **d_world) {
+//	
+//	if (threadIdx.x == 0 && blockIdx.x == 0) {
+//		*(d_list) = new sphere(vec3(xPos,yPos,zPos), 0.2);	
+//		*d_world = new hitable_list(d_list, 1);
+//	}
+//}
+
 __global__ void free_world(hitable **d_list, hitable **d_world) {
 	delete *(d_list);
 	delete *(d_list + 1);
@@ -125,24 +124,8 @@ void freeTexture()
 }
 
 __global__ void
-d_render(uchar4 *d_output, uint width, uint height, hitable **d_world)
+d_render(uchar4 *d_output, uint width, uint height, const sphere *spheres)
 {
-	/*Draws a cicle using pythag*/
-		/*int centerX = width / 2;
-		int centerY = height / 2;
-		int radiusOfCirlce = 200;*/
-		/*x -= centerX;
-		y -= centerY;
-
-		int length = sqrtf(x*x + y * y);
-
-		int c = 0;
-
-		if (length < radiusOfCirlce)
-			c = 255;*/
-
-			/*Draw Big Squares*/
-			/*int c = ((((x & 0x20) == 0) ^ ((y & 0x20)) == 0)) * 255;*/
 	uint x = blockIdx.x * blockDim.x + threadIdx.x;
 	uint y = blockIdx.y * blockDim.y + threadIdx.y;
 	uint i = y * width + x;
@@ -157,53 +140,53 @@ d_render(uchar4 *d_output, uint width, uint height, hitable **d_world)
 
 	u *= 2.0;
 	v *= 2.0;
-	vec3 eye = vec3(0, 0.5, 1.5);
-	float distFrEye2Img = 1.0;;
+	vec3 eye = vec3(0.5, 0.5, 1.5);
+	float distFrEye2Img = 1.0;
 	if ((x < width) && (y < height))
 	{
+		printf("made it -------------------------\n");
 		//for each pixel
 		vec3 pixelPos = vec3(u, v, eye.z() - distFrEye2Img);
 		//fire a ray:
 		ray r;
 		r.Origin = eye;
 		r.Direction = pixelPos - eye; //view direction along negtive z-axis!
-		vec3 col = castRay(r, d_world);
-		float red = col.x();
-		float green = col.y();
-		float blue = col.z();
-		d_output[i] = make_uchar4(red * 255, green * 255, blue * 255, 0);
-	}
-		
-
-		/*float radius = 0.1;
-		int c = 0;
-
-		float distance = u * u + v * v;
-		if (distance < radius * 2)
+		for (int i = 0; i < PARTICLE_COUNT; i++)
 		{
-			c = 255;
-		}
 
-		
-		d_output[i] = make_uchar4(c, 0, 0, 0);		*/
-			
+			if (spheres[i].hit(r, 0.0, FLT_MAX))
+			{				
+				//TODO: This may not be best solution as a particle behind could be rendered first. i.e don't return.
+				d_output[i] = spheres[i].color;				
+			}
+			else
+			{
+				d_output[i] = make_uchar4(124, 252, 0, 0);
+			}
+		}
+	}			
 }
 
 
 // render image using CUDA
-extern "C"
-void render(int width, int height,
-	dim3 blockSize, dim3 gridSize, uchar4 *output)
+extern "C" 
+void render(int width, int height, dim3 blockSize, dim3 gridSize, uchar4 *output)
 {
-	hitable **d_list;
-	checkCudaErrors(cudaMalloc((void **)&d_list, 2 * sizeof(hitable *)));
-	hitable **d_world;
-	checkCudaErrors(cudaMalloc((void **)&d_world, sizeof(hitable *)));
-	create_world << <1, 1 >> > (d_list, d_world);
+	sphere *d_spheres = 0;
+
+	checkCudaErrors(cudaMalloc((void **)&d_spheres, PARTICLE_COUNT * sizeof(sphere)));
+
+	checkCudaErrors(cudaMemcpy(d_spheres, spheres, PARTICLE_COUNT * sizeof(sphere), cudaMemcpyHostToDevice));
+
+	
+	// call CUDA kernel, writing results to PBO memory
+	d_render << <gridSize, blockSize >> > (output, width, height, d_spheres);
+
 	checkCudaErrors(cudaGetLastError());
 	checkCudaErrors(cudaDeviceSynchronize());
-	// call CUDA kernel, writing results to PBO memory
-	d_render << <gridSize, blockSize >> > (output, width, height, d_world);
+
+	checkCudaErrors(cudaMemcpy(spheres, d_spheres, PARTICLE_COUNT * sizeof(sphere), cudaMemcpyDeviceToHost));
+
 
 	getLastCudaError("kernel failed");
 }

@@ -10,6 +10,7 @@
 #endif
 
 // Includes
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -83,6 +84,7 @@ extern "C" void initTexture(int imageWidth, int imageHeight, uchar *h_data);
 extern "C" void freeTexture();
 extern "C" void render(int width, int height, dim3 blockSize, dim3 gridSize,
 uchar4 *output);
+extern "C" void init_particles();
 
 
 
@@ -381,6 +383,10 @@ void initGL(int *argc, char **argv)
 	glutMotionFunc(motion);
 	glutReshapeFunc(reshape);
 	glutTimerFunc(REFRESH_DELAY, timerEvent, 0);
+
+	init_particles();
+
+	
 
 #if defined (__APPLE__) || defined(MACOSX)
 	atexit(cleanup);
