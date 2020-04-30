@@ -123,6 +123,7 @@ void freeTexture()
 	checkCudaErrors(cudaFreeArray(d_imageArray));
 }
 
+
 __global__ void
 d_render(uchar4 *d_output, uint width, uint height, const sphere *spheres)
 {
@@ -135,21 +136,16 @@ d_render(uchar4 *d_output, uint width, uint height, const sphere *spheres)
 	float v = y / (float)height;
 	u = 2.0*u - 1.0;
 	v = -(2.0*v - 1.0);
-
 	u *= width / height;
-
 	u *= 2.0;
 	v *= 2.0;
-	vec3 eye = vec3(0.5, 0.5, 2);
-	float distFrEye2Img = 1.0;
+	
 	if ((x < width) && (y < height))
 	{		
 		//for each pixel
-		vec3 pixelPos = vec3(u, v, eye.z() - distFrEye2Img);
+		
 		//fire a ray:
-		ray r;
-		r.Origin = eye;
-		r.Direction = pixelPos - eye; //view direction along negtive z-axis!
+		ray r = ray(u, v);		
 		for (int j = 0; j < PARTICLE_COUNT; j++)
 		{				
 			if (spheres[j].hit(r, 0.0, FLT_MAX))
