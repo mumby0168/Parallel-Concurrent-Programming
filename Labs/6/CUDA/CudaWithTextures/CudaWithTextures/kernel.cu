@@ -12,6 +12,7 @@
 #include "hitable_list.h"
 #include "sphere.h"
 #include "vec3.h"
+#include <time.h>
 
 #include <helper_math.h>
 
@@ -25,6 +26,7 @@ typedef unsigned int uint;
 typedef unsigned char uchar;
 
 sphere spheres[PARTICLE_COUNT];
+vec3 randoms[PARTICLE_COUNT];
 
 cudaArray *d_imageArray = 0;
 
@@ -67,6 +69,16 @@ __device__ static float zStep = 0.001;
 __device__ static float zPos = 0;
 
 
+float generate_random() {
+	uint seed = time(0);	
+	srand(seed);
+	auto r = rand() % 100;
+	if (rand() % 100 < 50)
+		r = -r;
+	return r / 1000.0;
+}
+
+
 extern "C" void init_particles()
 {
 	for (int i = 0; i < PARTICLE_COUNT; i++)
@@ -76,14 +88,56 @@ extern "C" void init_particles()
 }
 
 
-
-__global__ void move_particles()
-{
-
+void update_randoms() {
+	for (int i = 0; i < PARTICLE_COUNT; i++) {
+		randoms[i] = vec3(generate_random(), generate_random(), generate_random());
+	}
 }
 
-__global__ void bound_particles()
+
+
+__global__ void move_particles(sphere *spheres, const vec3 *randoms)
+{	
+	int i = threadIdx.x;	
+	spheres[i].move(randoms[i].x(), randoms[i].y(), randoms[i].z());
+}
+
+__global__ void bound_particles(sphere *spheres)
 {
+	int i = threadIdx.x;
+	int x = spheres[i].center.x();
+	int y = spheres[i].center.y();
+	int z = spheres[i].center.z();
+	bool update = false;
+
+	if (x > 1) {
+		x = -1;
+		update = true;
+	}
+	if (x < -1) {
+		x = 1;
+		update = true;
+	}
+
+	if (y > 1) {
+		y = -1;
+		update = true;
+	}
+	if (y< -1) {
+		y= 1;
+		update = true;
+	}
+	if (z > 1) {
+		z = -1;
+		update = true;
+	}
+	if (z < -1) {
+		z = 1;
+		update = true;
+	}
+
+	if(update)
+		spheres[i].update_position(x, y, z);
 
 }
 
@@ -165,13 +219,31 @@ extern "C"
 void render(int width, int height, dim3 blockSize, dim3 gridSize, uchar4 *output)
 {
 	sphere *d_spheres = 0;
+	vec3 *d_randoms = 0;
+
+	update_randoms();
+
+	checkCudaErrors(cudaMalloc((void **)&d_randoms, PARTICLE_COUNT * sizeof(vec3)));
+
+	checkCudaErrors(cudaMemcpy(d_randoms, randoms, PARTICLE_COUNT * sizeof(vec3), cudaMemcpyHostToDevice));
+
 
 	checkCudaErrors(cudaMalloc((void **)&d_spheres, PARTICLE_COUNT * sizeof(sphere)));
 
 	checkCudaErrors(cudaMemcpy(d_spheres, spheres, PARTICLE_COUNT * sizeof(sphere), cudaMemcpyHostToDevice));
 
 	
-	// call CUDA kernel, writing results to PBO memory
+	move_particles <<<1, 50 >>>(d_spheres, d_randoms);
+
+	checkCudaErrors(cudaGetLastError());
+	checkCudaErrors(cudaDeviceSynchronize());
+
+	bound_particles << <1, 50 >> > (d_spheres);
+
+	checkCudaErrors(cudaGetLastError());
+	checkCudaErrors(cudaDeviceSynchronize());
+
+
 	d_render << <gridSize, blockSize >> > (output, width, height, d_spheres);
 
 	checkCudaErrors(cudaGetLastError());

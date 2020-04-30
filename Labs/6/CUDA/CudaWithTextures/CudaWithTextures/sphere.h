@@ -9,22 +9,26 @@ public:
 	{
 		color = make_uchar4(0, 0, 128, 10);
 		auto x = rand() % 100;
-		auto y = rand() & 100;
-		auto z = rand() & 100;
+		auto y = rand() % 100;
+		auto z = rand() % 100;
 
 		center = vec3(x / 100.0, y / 100.0, z / 100.0);
 		radius = 0.1;
 	}
-	__device__ sphere(vec3 cen, float r) : center(cen), radius(r) {};
+
+
+	__device__ void move(float x, float y, float z);
+	__device__ void update_position(float x, float y, float z);
 	__device__ bool hit(const ray& r, float tmin, float tmax) const;
+
 	vec3 center;
 	vec3 previous_center;
 	uchar4 color;
 	float radius;
 };
 
-__device__ bool sphere::hit(const ray& r, float t_min, 
-			float t_max) const 
+__device__ bool sphere::hit(const ray& r, float t_min,
+	float t_max) const
 {	
 	vec3 oc = r.origin() - center;
 	float a = dot(r.direction(), r.direction());
@@ -42,6 +46,14 @@ __device__ bool sphere::hit(const ray& r, float t_min,
 		}
 	}
 	return false;
+}
+
+__device__ void sphere::move(float x, float y, float z) {			
+	center = vec3(x + center.x(), y + center.y(), z + center.z());
+}
+
+__device__ void sphere::update_position(float x, float y, float z) {
+	center = vec3(x, y, z);
 }
 
 
