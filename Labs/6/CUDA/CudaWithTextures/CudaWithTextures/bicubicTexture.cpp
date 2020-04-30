@@ -384,7 +384,7 @@ void initGL(int *argc, char **argv)
 	glutReshapeFunc(reshape);
 	glutTimerFunc(REFRESH_DELAY, timerEvent, 0);
 
-	init_particles();
+	/*init_particles();*/
 
 	
 

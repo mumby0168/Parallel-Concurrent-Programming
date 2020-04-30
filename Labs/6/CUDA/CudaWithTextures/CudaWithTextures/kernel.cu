@@ -143,21 +143,23 @@ d_render(uchar4 *d_output, uint width, uint height, const sphere *spheres)
 	vec3 eye = vec3(0.5, 0.5, 1.5);
 	float distFrEye2Img = 1.0;
 	if ((x < width) && (y < height))
-	{
-		printf("made it -------------------------\n");
+	{		
 		//for each pixel
 		vec3 pixelPos = vec3(u, v, eye.z() - distFrEye2Img);
 		//fire a ray:
 		ray r;
 		r.Origin = eye;
 		r.Direction = pixelPos - eye; //view direction along negtive z-axis!
-		for (int i = 0; i < PARTICLE_COUNT; i++)
-		{
+		for (int j = 0; j < PARTICLE_COUNT; j++)
+		{			
 
-			if (spheres[i].hit(r, 0.0, FLT_MAX))
+			
+
+			if (spheres[j].hit(r, 0.0, FLT_MAX))
 			{				
 				//TODO: This may not be best solution as a particle behind could be rendered first. i.e don't return.
-				d_output[i] = spheres[i].color;				
+				d_output[i] = spheres[j].color;		
+				return;
 			}
 			else
 			{

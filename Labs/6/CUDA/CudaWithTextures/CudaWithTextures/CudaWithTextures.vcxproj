@@ -83,8 +83,6 @@
     <CudaCompile Include="kernel.cu" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="hitable.h" />
-    <ClInclude Include="hitable_list.h" />
     <ClInclude Include="Ray.h" />
     <ClInclude Include="sphere.h" />
     <ClInclude Include="vec3.h" />

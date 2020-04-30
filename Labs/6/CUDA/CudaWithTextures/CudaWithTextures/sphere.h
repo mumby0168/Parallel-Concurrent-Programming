@@ -12,7 +12,7 @@ public:
 		radius = 0.2;
 	}
 	__device__ sphere(vec3 cen, float r) : center(cen), radius(r) {};
-	__device__ virtual bool hit(const ray& r, float tmin, float tmax) const;
+	__device__ bool hit(const ray& r, float tmin, float tmax) const;
 	vec3 center;
 	vec3 previous_center;
 	uchar4 color;
