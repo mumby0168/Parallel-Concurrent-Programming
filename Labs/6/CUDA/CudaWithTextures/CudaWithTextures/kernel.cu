@@ -13,7 +13,7 @@
 #include "sphere.h"
 #include "vec3.h"
 #include <time.h>
-
+#include <chrono>
 #include <helper_math.h>
 
 
@@ -24,6 +24,7 @@
 
 typedef unsigned int uint;
 typedef unsigned char uchar;
+using namespace std::chrono;
 
 sphere spheres[PARTICLE_COUNT];
 vec3 randoms[PARTICLE_COUNT];
@@ -70,10 +71,9 @@ __device__ static float zPos = 0;
 
 
 float generate_random() {
-	uint seed = time(0);	
-	srand(seed);
-	auto r = rand() % 100;
-	if (rand() % 100 < 50)
+
+	auto r = rand() % 100;	
+	if(rand() % 100 < 50)
 		r = -r;
 	return r / 1000.0;
 }
@@ -81,10 +81,10 @@ float generate_random() {
 
 extern "C" void init_particles()
 {
-	for (int i = 0; i < PARTICLE_COUNT; i++)
-	{
-		spheres[i] = sphere();
-	}
+	milliseconds ms = duration_cast<milliseconds>(
+		system_clock::now().time_since_epoch());
+
+	srand(ms.count());
 }
 
 
