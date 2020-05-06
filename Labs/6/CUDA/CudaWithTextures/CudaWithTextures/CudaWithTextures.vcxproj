@@ -85,6 +85,7 @@
   <ItemGroup>
     <ClInclude Include="Ray.h" />
     <ClInclude Include="sphere.h" />
+    <ClInclude Include="types.h" />
     <ClInclude Include="vec3.h" />
   </ItemGroup>
   <ItemGroup>

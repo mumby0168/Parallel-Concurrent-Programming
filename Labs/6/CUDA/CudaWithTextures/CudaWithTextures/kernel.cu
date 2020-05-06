@@ -15,6 +15,7 @@
 #include <time.h>
 #include <chrono>
 #include <helper_math.h>
+#include "types.h"
 
 
 #define PARTICLE_COUNT 50
@@ -29,6 +30,8 @@ using namespace std::chrono;
 sphere spheres[PARTICLE_COUNT];
 vec3 randoms[PARTICLE_COUNT];
 
+bool gravity_enabled = false;
+
 cudaArray *d_imageArray = 0;
 
 #define checkCudaErrors(val) check_cuda( (val), #val, __FILE__, __LINE__ )
@@ -41,41 +44,19 @@ void check_cuda(cudaError_t result, char const *const func, const char *const
 		exit(99);
 	}
 }
-//__device__ vec3 castRay(const ray& r, const sphere *spheres) {
-//	hit_record rec;
-//	for (int i = 0; i < PARTICLE_COUNT; i++)
-//	{
-//		if (spheres[i].hit(r, 0.0, FLT_MAX)) {
-//
-//			//TODO: Pick a colour to render when hit
-//			return vec3(0.5, 0.5, 0.5);
-//		}
-//		else {
-//			//TODO: render the background colour
-//			return vec3(1, 1, 1);
-//		}
-//	}
-//	
-//}
 
-__device__ static int ticks = 1;
-
-__device__ static float xStep = 0.01;
-__device__ static float xPos = 0;
-
-__device__ static float yStep = 0.01;
-__device__ static float yPos = 0;
-
-__device__ static float zStep = 0.001;
-__device__ static float zPos = 0;
+extern "C" void set_gravity(bool value) {
+	printf("gravity %d\n", value);
+	gravity_enabled = value;
+}
 
 
 float generate_random() {
 
-	auto r = rand() % 100;	
+	float r = rand() % 100;	
 	if(rand() % 100 < 50)
-		r = -r;
-	return r / 1000.0;
+		r = -r;	
+	return r / 1000;		
 }
 
 
@@ -102,12 +83,18 @@ __global__ void move_particles(sphere *spheres, const vec3 *randoms)
 	spheres[i].move(randoms[i].x(), randoms[i].y(), randoms[i].z());
 }
 
+__global__ void apply_gravity(sphere *spheres)
+{
+	int i = threadIdx.x;
+	spheres[i].move(0,-0.2,0);
+}
+
 __global__ void bound_particles(sphere *spheres)
 {
 	int i = threadIdx.x;
 	int x = spheres[i].center.x();
 	int y = spheres[i].center.y();
-	int z = spheres[i].center.z();
+	int z = spheres[i].center.z();	
 	bool update = false;
 
 	if (x > 1) {
@@ -141,9 +128,17 @@ __global__ void bound_particles(sphere *spheres)
 
 }
 
-__global__ void colour_particles()
+__global__ void colour_particles(const ColorMode *mode)
 {
-
+	if (*mode == Solid) {
+		printf("solid\n");
+	}
+	else if (*mode == CenterMass) {
+		printf("center masss");
+	}
+	else if (*mode == Speed) {
+		printf("speed");
+	}
 }
 
 
@@ -183,8 +178,7 @@ d_render(uchar4 *d_output, uint width, uint height, const sphere *spheres)
 {
 	uint x = blockIdx.x * blockDim.x + threadIdx.x;
 	uint y = blockIdx.y * blockDim.y + threadIdx.y;
-	uint i = y * width + x;
-	
+	uint i = y * width + x;		
 
 	float u = x / (float)width;
 	float v = y / (float)height;
@@ -216,10 +210,12 @@ d_render(uchar4 *d_output, uint width, uint height, const sphere *spheres)
 
 // render image using CUDA
 extern "C" 
-void render(int width, int height, dim3 blockSize, dim3 gridSize, uchar4 *output)
+void render(int width, int height, dim3 blockSize, dim3 gridSize, uchar4 *output, int deltaTime, ColorMode mode)
 {
 	sphere *d_spheres = 0;
 	vec3 *d_randoms = 0;
+	int *d_DeltaTime = 0;
+	ColorMode *d_mode = 0;
 
 	update_randoms();
 
@@ -232,19 +228,38 @@ void render(int width, int height, dim3 blockSize, dim3 gridSize, uchar4 *output
 
 	checkCudaErrors(cudaMemcpy(d_spheres, spheres, PARTICLE_COUNT * sizeof(sphere), cudaMemcpyHostToDevice));
 
+	checkCudaErrors(cudaMalloc((void **)&d_DeltaTime, sizeof(int)));
+
+	checkCudaErrors(cudaMemcpy(d_DeltaTime, &deltaTime, sizeof(int), cudaMemcpyHostToDevice));
+
+	checkCudaErrors(cudaMalloc((void **)&d_mode, sizeof(ColorMode)));
+
+	checkCudaErrors(cudaMemcpy(d_mode, &mode, sizeof(ColorMode), cudaMemcpyHostToDevice));
+
 	
-	move_particles <<<1, 50 >>>(d_spheres, d_randoms);
+	move_particles<<<1, 50>>>(d_spheres, d_randoms);
 
 	checkCudaErrors(cudaGetLastError());
 	checkCudaErrors(cudaDeviceSynchronize());
 
-	bound_particles << <1, 50 >> > (d_spheres);
+	if (gravity_enabled)
+	{
+		apply_gravity<<<1, 50 >>>(d_spheres);
+		checkCudaErrors(cudaGetLastError());
+		checkCudaErrors(cudaDeviceSynchronize());
+	}
+
+	bound_particles<<<1, 50>>>(d_spheres);
 
 	checkCudaErrors(cudaGetLastError());
 	checkCudaErrors(cudaDeviceSynchronize());
 
+	colour_particles<<<1,50>>>(d_mode);
 
-	d_render << <gridSize, blockSize >> > (output, width, height, d_spheres);
+	checkCudaErrors(cudaGetLastError());
+	checkCudaErrors(cudaDeviceSynchronize());
+
+	d_render<<<gridSize, blockSize>>>(output, width, height, d_spheres);
 
 	checkCudaErrors(cudaGetLastError());
 	checkCudaErrors(cudaDeviceSynchronize());

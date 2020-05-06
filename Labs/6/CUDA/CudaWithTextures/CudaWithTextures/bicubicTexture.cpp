@@ -16,6 +16,8 @@
 #include <string.h>
 #include <math.h>
 
+#include "types.h"
+
 // CUDA system and GL includes
 #include <cuda_runtime.h>
 #include <cuda_gl_interop.h>
@@ -73,6 +75,7 @@ void display();
 void initGLBuffers();
 void runBenchmark(int iterations);
 void cleanup();
+ColorMode color_mode = Solid;
 
 #define GL_TEXTURE_TYPE GL_TEXTURE_RECTANGLE_ARB
 //#define GL_TEXTURE_TYPE GL_TEXTURE_2D
@@ -83,8 +86,9 @@ extern "C" void loadImageData(int argc, char **argv);
 extern "C" void initTexture(int imageWidth, int imageHeight, uchar *h_data);
 extern "C" void freeTexture();
 extern "C" void render(int width, int height, dim3 blockSize, dim3 gridSize,
-uchar4 *output);
+uchar4 *output, int deltaTime, ColorMode mode);
 extern "C" void init_particles();
+extern "C" void set_gravity(bool value);
 
 
 
@@ -113,6 +117,8 @@ void computeFPS()
 	}
 }
 
+int oldTimeSinceStart = 0;
+
 // display results using OpenGL (called by GLUT)
 void display()
 {
@@ -126,7 +132,13 @@ void display()
 		cuda_pbo_resource));
 
 
-	render(imageWidth, imageHeight, blockSize, gridSize, d_output);
+	int timeSinceStart = glutGet(GLUT_ELAPSED_TIME);
+	int delta = timeSinceStart - oldTimeSinceStart;
+	oldTimeSinceStart = timeSinceStart;
+	
+	
+	render(imageWidth, imageHeight, blockSize, gridSize, d_output, delta, color_mode);
+
 
 	checkCudaErrors(cudaGraphicsUnmapResources(1, &cuda_pbo_resource, 0));
 
@@ -180,9 +192,23 @@ void timerEvent(int value)
 
 
 void keyboard(unsigned char key, int /*x*/, int /*y*/)
-{
+{	
 	switch (key)
 	{
+
+	case 'g':
+		set_gravity(true);
+		return;
+
+	case '1':
+		color_mode = Solid;
+		return;
+	case '2':
+		color_mode = Speed;
+		return;
+	case '4':
+		color_mode = CenterMass;
+		return;
 	case 27:
 #if defined(__APPLE__) || defined(MACOSX)
 		exit(EXIT_SUCCESS);
@@ -370,16 +396,27 @@ void initialize(int argc, char **argv)
 
 }
 
+
+void keyUp(unsigned char key, int x, int y)
+{
+	std::cout << "keyup " << key << "\n";
+	if (key == 'g') {
+		set_gravity(false);
+	}
+}
+
 void initGL(int *argc, char **argv)
 {
 	// initialize GLUT callback functions
 	glutInit(argc, argv);
 	glutInitDisplayMode(GLUT_RGBA | GLUT_ALPHA | GLUT_DOUBLE | GLUT_DEPTH);
 	glutInitWindowSize(width, height);
+	glutSetKeyRepeat(GLUT_KEY_REPEAT_OFF);
 	glutCreateWindow("Particle Simulation");
 	glutDisplayFunc(display);
 	glutKeyboardFunc(keyboard);
 	glutMouseFunc(mouse);
+	glutKeyboardUpFunc(keyUp);
 	glutMotionFunc(motion);
 	glutReshapeFunc(reshape);
 	glutTimerFunc(REFRESH_DELAY, timerEvent, 0);

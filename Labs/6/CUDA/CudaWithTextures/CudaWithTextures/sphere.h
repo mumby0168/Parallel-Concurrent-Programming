@@ -20,12 +20,15 @@ public:
 	__device__ void move(float x, float y, float z);
 	__device__ void update_position(float x, float y, float z);
 	__device__ bool hit(const ray& r, float tmin, float tmax) const;
+	__device__ void set_brightness(float brightness);
 
 	vec3 center;
 	vec3 previous_center;
 	uchar4 color;
 	float radius;
 };
+
+
 
 __device__ bool sphere::hit(const ray& r, float t_min,
 	float t_max) const
@@ -48,11 +51,19 @@ __device__ bool sphere::hit(const ray& r, float t_min,
 	return false;
 }
 
-__device__ void sphere::move(float x, float y, float z) {			
+inline __device__ void sphere::set_brightness(float brightness)
+{
+	this->color.w = brightness;
+}
+
+__device__ void sphere::move(float x, float y, float z) {	
+	
+	previous_center = center;
 	center = vec3(x + center.x(), y + center.y(), z + center.z());
 }
 
 __device__ void sphere::update_position(float x, float y, float z) {
+	previous_center = center;
 	center = vec3(x, y, z);
 }
 
