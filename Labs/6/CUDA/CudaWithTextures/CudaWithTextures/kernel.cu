@@ -139,7 +139,18 @@ __global__ void colour_particles(const ColorMode *mode, sphere *spheres)
 		spheres[i].solid_colour();
 	}
 	else if (*mode == CenterMass) {
-		
+		float toCenter = pow((spheres[i].center.x() - 0.5), 2) +
+			pow((spheres[i].center.y() - 0.5), 2) + pow((spheres[i].center.z() - 0.5), 2);
+
+		float distance = sqrt(toCenter);
+
+		float percentage = (1.0 / distance) / 100;
+
+		float brightness = 255 - (255 * percentage);
+
+		printf("%f\n", brightness);
+
+		spheres[i].set_brightness(brightness);
 	}
 	else if (*mode == Speed) {
 
@@ -154,15 +165,6 @@ __global__ void colour_particles(const ColorMode *mode, sphere *spheres)
 	}
 }
 
-
-////TODO: Possibly change this to check every particles boundaries.
-//__global__ void create_world(hitable **d_list, hitable **d_world) {
-//	
-//	if (threadIdx.x == 0 && blockIdx.x == 0) {
-//		*(d_list) = new sphere(vec3(xPos,yPos,zPos), 0.2);	
-//		*d_world = new hitable_list(d_list, 1);
-//	}
-//}
 
 __global__ void free_world(hitable **d_list, hitable **d_world) {
 	delete *(d_list);
