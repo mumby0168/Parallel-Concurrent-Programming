@@ -128,15 +128,16 @@ __global__ void bound_particles(sphere *spheres)
 
 }
 
+
 __global__ void colour_particles(const ColorMode *mode, sphere *spheres)
 {
 	int i = threadIdx.x;
 
 	if (*mode == Solid) {
-		printf("solid\n");
+		
 	}
 	else if (*mode == CenterMass) {
-		printf("center masss");
+		
 	}
 	else if (*mode == Speed) {
 
@@ -213,7 +214,7 @@ d_render(uchar4 *d_output, uint width, uint height, const sphere *spheres)
 				return;
 			}			
 		}
-		d_output[i] = make_uchar4(124, 252, 0, 55);
+		d_output[i] = make_uchar4(220, 220, 220, 255);
 	}			
 }
 

@@ -7,7 +7,7 @@ class sphere {
 public:
 	sphere() 
 	{
-		color = make_uchar4(0, 0, 128, 10);
+		color = make_uchar4(255, 0, 0, 0);
 		auto x = rand() % 100;
 		auto y = rand() % 100;
 		auto z = rand() % 100;
@@ -53,8 +53,8 @@ __device__ bool sphere::hit(const ray& r, float t_min,
 
 inline __device__ void sphere::set_brightness(float brightness)
 {
-	printf("brightness: %f\n", brightness);
-	this->color.w = brightness;
+	unsigned char bright = (unsigned char)brightness;
+	this->color = make_uchar4(brightness, this->color.y, this->color.z, 255);
 }
 
 __device__ void sphere::move(float x, float y, float z) {	
