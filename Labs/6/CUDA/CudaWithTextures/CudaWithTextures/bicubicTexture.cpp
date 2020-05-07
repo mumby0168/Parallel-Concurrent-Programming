@@ -199,6 +199,9 @@ void keyboard(unsigned char key, int /*x*/, int /*y*/)
 	case 'g':
 		set_gravity(true);
 		return;
+	case 'c':
+		set_gravity(false);
+		return;
 	case '1':
 		color_mode = Solid;
 		return;
@@ -400,7 +403,7 @@ void keyUp(unsigned char key, int x, int y)
 {
 	std::cout << "keyup " << key << "\n";
 	if (key == 'g') {
-		set_gravity(false);
+		/*set_gravity(false);*/
 	}
 }
 
