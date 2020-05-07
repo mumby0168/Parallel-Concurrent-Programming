@@ -199,7 +199,6 @@ void keyboard(unsigned char key, int /*x*/, int /*y*/)
 	case 'g':
 		set_gravity(true);
 		return;
-
 	case '1':
 		color_mode = Solid;
 		return;

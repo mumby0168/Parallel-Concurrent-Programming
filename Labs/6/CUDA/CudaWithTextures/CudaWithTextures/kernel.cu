@@ -128,8 +128,10 @@ __global__ void bound_particles(sphere *spheres)
 
 }
 
-__global__ void colour_particles(const ColorMode *mode)
+__global__ void colour_particles(const ColorMode *mode, sphere *spheres)
 {
+	int i = threadIdx.x;
+
 	if (*mode == Solid) {
 		printf("solid\n");
 	}
@@ -137,7 +139,15 @@ __global__ void colour_particles(const ColorMode *mode)
 		printf("center masss");
 	}
 	else if (*mode == Speed) {
-		printf("speed");
+
+		float toRoute = pow((spheres[i].center.x() - spheres[i].previous_center.x()), 2) +
+			pow((spheres[i].center.y() - spheres[i].previous_center.y()), 2) + pow((spheres[i].center.z() - spheres[i].previous_center.z()), 2);
+
+		float distance = sqrt(toRoute);
+
+		float percentage = (1.0 / distance) / 100;
+
+		spheres[i].set_brightness(255 * percentage);
 	}
 }
 
@@ -203,7 +213,7 @@ d_render(uchar4 *d_output, uint width, uint height, const sphere *spheres)
 				return;
 			}			
 		}
-		d_output[i] = make_uchar4(124, 252, 0, 0);
+		d_output[i] = make_uchar4(124, 252, 0, 55);
 	}			
 }
 
@@ -254,7 +264,7 @@ void render(int width, int height, dim3 blockSize, dim3 gridSize, uchar4 *output
 	checkCudaErrors(cudaGetLastError());
 	checkCudaErrors(cudaDeviceSynchronize());
 
-	colour_particles<<<1,50>>>(d_mode);
+	colour_particles<<<1,50>>>(d_mode, d_spheres);
 
 	checkCudaErrors(cudaGetLastError());
 	checkCudaErrors(cudaDeviceSynchronize());

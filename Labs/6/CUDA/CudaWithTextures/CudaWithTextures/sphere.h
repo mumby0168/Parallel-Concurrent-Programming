@@ -53,6 +53,7 @@ __device__ bool sphere::hit(const ray& r, float t_min,
 
 inline __device__ void sphere::set_brightness(float brightness)
 {
+	printf("brightness: %f\n", brightness);
 	this->color.w = brightness;
 }
 
