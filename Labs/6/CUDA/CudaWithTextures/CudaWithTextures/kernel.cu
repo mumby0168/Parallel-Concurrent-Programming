@@ -18,7 +18,7 @@
 #include "types.h"
 
 
-#define PARTICLE_COUNT 50
+#define PARTICLE_COUNT 1000
 
  // includes, cuda
 #include <helper_cuda.h>
@@ -58,7 +58,7 @@ float generate_random() {
 	float r = rand() % 100;	
 	if(rand() % 100 < 50)
 		r = -r;	
-	return r / 100;		
+	return r / 5;
 }
 
 
@@ -90,7 +90,7 @@ __global__ void apply_gravity(sphere *spheres, const int *delta)
 {
 	int i = threadIdx.x + (blockDim.x * blockIdx.x);
 	float d = (*delta) / 1000.0;
-	spheres[i].move(0,-0.9 * d,0);
+	spheres[i].move(0,-9.0 * d,0);
 }
 
 __global__ void bound_particles(sphere *spheres)
@@ -101,29 +101,29 @@ __global__ void bound_particles(sphere *spheres)
 	int z = spheres[i].center.z();	
 	bool update = false;
 
-	if (x > 3) {
-		x = -3;
+	if (x > 100) {
+		x = 0;
 		update = true;
 	}
-	if (x < -3) {
-		x = 3;
+	if (x < 0) {
+		x = 100;
 		update = true;
 	}
 
-	if (y > 3) {
-		y = -3;
+	if (y > 100) {
+		y = 0;
 		update = true;
 	}
-	if (y< -3) {
-		y= 3;
+	if (y< 0) {
+		y= 100;
 		update = true;
 	}
-	if (z > 3) {
-		z = -3;
+	if (z > 100) {
+		z = 0;
 		update = true;
 	}
-	if (z < -3) {
-		z = 3;
+	if (z < 0) {
+		z = 100;
 		update = true;
 	}
 
@@ -141,16 +141,14 @@ __global__ void colour_particles(const ColorMode *mode, sphere *spheres)
 		spheres[i].solid_colour();
 	}
 	else if (*mode == CenterMass) {
-		float toCenter = pow((spheres[i].center.x() - 0.5), 2) +
-			pow((spheres[i].center.y() - 0.5), 2) + pow((spheres[i].center.z() - 0.5), 2);
+		float toCenter = pow((spheres[i].center.x() - 50), 2) +
+			pow((spheres[i].center.y() - 50), 2) + pow((spheres[i].center.z() - 50), 2);
 
 		float distance = sqrt(toCenter);
 
 		float percentage = (1.0 / distance) / 100;
 
 		float brightness = 255 - (255 * percentage);
-
-		printf("%f\n", brightness);
 
 		spheres[i].set_brightness(brightness);
 	}
@@ -191,7 +189,7 @@ void freeTexture()
 
 
 __global__ void
-d_render(uchar4 *d_output, uint width, uint height, const sphere *spheres)
+d_render(uchar4 *d_output, uint width, uint height, sphere *spheres)
 {
 	uint x = blockIdx.x * blockDim.x + threadIdx.x;
 	uint y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -209,11 +207,11 @@ d_render(uchar4 *d_output, uint width, uint height, const sphere *spheres)
 	{		
 		//for each pixel
 		
-		//fire a ray:
-		ray r = ray(u, v);		
+		const vec3 direction = vec3(u, v, -1.5);
 		for (int j = 0; j < PARTICLE_COUNT; j++)
-		{				
-			if (spheres[j].hit(r, 0.0, FLT_MAX))
+		{			
+			spheres[j].norm();
+			if (spheres[j].hit(direction))
 			{				
 				//TODO: This may not be best solution as a particle behind could be rendered first. i.e don't return.
 				d_output[i] = spheres[j].color;		

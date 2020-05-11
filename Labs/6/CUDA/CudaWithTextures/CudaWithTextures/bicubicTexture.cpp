@@ -98,21 +98,13 @@ extern "C" void set_gravity(bool value);
 void computeFPS()
 {
 	frameCount++;
-	fpsCount++;
-
-	if (fpsCount == fpsLimit - 1)
-	{
-		g_Verify = true;
-	}
-
-	if (fpsCount == fpsLimit)
+	if (frameCount == 10)
 	{
 		char fps[256];
-		float ifps = 1.f / (sdkGetAverageTimerValue(&timer) / 1000.f);		
-
+		float ifps = 1.f / (sdkGetAverageTimerValue(&timer) / 1000.f);
+		sprintf(fps, " %3.1f FPS", ifps);
 		glutSetWindowTitle(fps);
-		fpsCount = 0;
-
+		frameCount = 0;
 		sdkResetTimer(&timer);
 	}
 }

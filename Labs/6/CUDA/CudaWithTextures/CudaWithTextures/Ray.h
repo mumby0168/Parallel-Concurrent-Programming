@@ -12,7 +12,7 @@ class ray
 
     public:
         __device__ ray(float u, float v) {
-			vec3 pixelPos = vec3(u, v, eye.z() - distFrEye2Img);
+			vec3 pixelPos = vec3(u, v, 4);
 			this->Origin = eye;
 			this->Direction = pixelPos - eye;
 		}
