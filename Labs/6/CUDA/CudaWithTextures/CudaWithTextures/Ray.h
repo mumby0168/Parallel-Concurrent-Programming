@@ -5,7 +5,7 @@
 class ray
 {
 	private:
-		const vec3 eye = vec3(0.5, 0.5, 2);
+		const vec3 eye = vec3(0.5, 0.5, 5);
 		const float distFrEye2Img = 1.0;
 
 
