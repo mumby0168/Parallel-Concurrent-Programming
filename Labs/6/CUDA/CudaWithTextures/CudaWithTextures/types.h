@@ -16,6 +16,7 @@ struct SimulationParams
 	ColorMode colorMode;
 	float max;
 	float dt;
+	float maxCenterDistance;
 
 };
 

@@ -133,9 +133,18 @@ __global__ void bound_particles(sphere *spheres)
 }
 
 
-__global__ void colour_particles(const SimulationParams *params, sphere *spheres)
+__global__ void colour_particles(SimulationParams *params, sphere *spheres)
 {
 	int i = threadIdx.x + (blockDim.x * blockIdx.x);
+
+	float toRoute = pow((spheres[i].center.x() - spheres[i].previous_center.x()), 2) +
+		pow((spheres[i].center.y() - spheres[i].previous_center.y()), 2) + pow((spheres[i].center.z() - spheres[i].previous_center.z()), 2);
+
+	float distance = sqrt(toRoute);
+
+	if (distance > params->max) {
+		params->max = distance;
+	}
 
 	if (params->colorMode == Solid) {
 		spheres[i].solid_colour();
@@ -144,23 +153,16 @@ __global__ void colour_particles(const SimulationParams *params, sphere *spheres
 		float toCenter = pow((spheres[i].center.x() - 50), 2) +
 			pow((spheres[i].center.y() - 50), 2) + pow((spheres[i].center.z() - 50), 2);
 
-		float distance = sqrt(toCenter);
+		float distanceToCenter = sqrt(toCenter);
 
-		float percentage = (1.0 / distance * distance);
+		float percentage = 1 - (distanceToCenter / params->maxCenterDistance);
 
-		printf("%f\n", percentage);
-
-		float brightness = 255 - (255 * percentage);
+		printf("perc: %f\n", percentage);
 
 
-		spheres[i].set_brightness(brightness);
+		spheres[i].set_brightness(percentage * 255);
 	}
 	else if (params->colorMode == Speed) {
-
-		float toRoute = pow((spheres[i].center.x() - spheres[i].previous_center.x()), 2) +
-			pow((spheres[i].center.y() - spheres[i].previous_center.y()), 2) + pow((spheres[i].center.z() - spheres[i].previous_center.z()), 2);
-
-		float distance = sqrt(toRoute);
 
 		float percentage = (1.0 / distance * 20) / 100;
 

@@ -422,7 +422,12 @@ void initGL(int *argc, char **argv)
 
 	params.colorMode = Solid;
 
+	params.maxCenterDistance = sqrt(3 * (100 * 100));
+	printf("max distance: %f\n", params.maxCenterDistance);
+
 	init_particles();
+
+
 
 	/*init_particles();*/
 
