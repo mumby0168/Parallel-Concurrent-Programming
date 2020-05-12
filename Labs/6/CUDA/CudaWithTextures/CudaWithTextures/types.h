@@ -11,4 +11,12 @@ enum ColorMode
 	Solid
 };
 
+struct SimulationParams
+{
+	ColorMode colorMode;
+	float max;
+	float dt;
+
+};
+
 #endif

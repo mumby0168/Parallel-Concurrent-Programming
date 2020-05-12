@@ -76,6 +76,7 @@ void initGLBuffers();
 void runBenchmark(int iterations);
 void cleanup();
 ColorMode color_mode = Solid;
+SimulationParams params;
 
 #define GL_TEXTURE_TYPE GL_TEXTURE_RECTANGLE_ARB
 //#define GL_TEXTURE_TYPE GL_TEXTURE_2D
@@ -86,7 +87,7 @@ extern "C" void loadImageData(int argc, char **argv);
 extern "C" void initTexture(int imageWidth, int imageHeight, uchar *h_data);
 extern "C" void freeTexture();
 extern "C" void render(int width, int height, dim3 blockSize, dim3 gridSize,
-uchar4 *output, int deltaTime, ColorMode mode);
+uchar4 *output, SimulationParams params);
 extern "C" void init_particles();
 extern "C" void set_gravity(bool value);
 
@@ -127,9 +128,10 @@ void display()
 	int timeSinceStart = glutGet(GLUT_ELAPSED_TIME);
 	int delta = timeSinceStart - oldTimeSinceStart;
 	oldTimeSinceStart = timeSinceStart;
+	params.dt = delta;
 	
 	
-	render(imageWidth, imageHeight, blockSize, gridSize, d_output, delta, color_mode);
+	render(imageWidth, imageHeight, blockSize, gridSize, d_output, params);
 
 
 	checkCudaErrors(cudaGraphicsUnmapResources(1, &cuda_pbo_resource, 0));
@@ -195,12 +197,15 @@ void keyboard(unsigned char key, int /*x*/, int /*y*/)
 		set_gravity(false);
 		return;
 	case '1':
+		params.colorMode = Solid;
 		color_mode = Solid;
 		return;
 	case '2':
+		params.colorMode = Speed;
 		color_mode = Speed;
 		return;
 	case '4':
+		params.colorMode = CenterMass;
 		color_mode = CenterMass;
 		return;
 	case 27:
@@ -414,6 +419,8 @@ void initGL(int *argc, char **argv)
 	glutMotionFunc(motion);
 	glutReshapeFunc(reshape);
 	glutTimerFunc(REFRESH_DELAY, timerEvent, 0);
+
+	params.colorMode = Solid;
 
 	init_particles();
 

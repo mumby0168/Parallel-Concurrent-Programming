@@ -40,10 +40,7 @@ __device__ bool sphere::hit(const vec3 direction) const
 	float b = dot(oc, direction);
 	float c = dot(oc, oc) - radius * radius;
 	float discriminant = b * b - a * c;
-	if (discriminant > 0) {
-		return true;
-	}
-	return false;
+	return (discriminant > 0);
 }
 
 inline __device__ void sphere::set_brightness(float brightness) {

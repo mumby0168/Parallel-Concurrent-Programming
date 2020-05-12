@@ -18,7 +18,7 @@
 #include "types.h"
 
 
-#define PARTICLE_COUNT 1000
+#define PARTICLE_COUNT 50
 
  // includes, cuda
 #include <helper_cuda.h>
@@ -79,17 +79,17 @@ void update_randoms() {
 
 
 
-__global__ void move_particles(sphere *spheres, const vec3 *randoms, const int *delta)
+__global__ void move_particles(sphere *spheres, const vec3 *randoms, const SimulationParams *params)
 {	
 	int i = threadIdx.x + (blockDim.x * blockIdx.x);
-	float d = (*delta) / 1000.0;
+	float d = (params->dt) / 1000.0;
 	spheres[i].move(randoms[i].x() * d, randoms[i].y() * d, randoms[i].z() * d);
 }
 
-__global__ void apply_gravity(sphere *spheres, const int *delta)
+__global__ void apply_gravity(sphere *spheres, const SimulationParams *params)
 {
 	int i = threadIdx.x + (blockDim.x * blockIdx.x);
-	float d = (*delta) / 1000.0;
+	float d = (params->dt) / 1000.0;
 	spheres[i].move(0,-9.0 * d,0);
 }
 
@@ -133,35 +133,40 @@ __global__ void bound_particles(sphere *spheres)
 }
 
 
-__global__ void colour_particles(const ColorMode *mode, sphere *spheres)
+__global__ void colour_particles(const SimulationParams *params, sphere *spheres)
 {
 	int i = threadIdx.x + (blockDim.x * blockIdx.x);
 
-	if (*mode == Solid) {
+	if (params->colorMode == Solid) {
 		spheres[i].solid_colour();
 	}
-	else if (*mode == CenterMass) {
+	else if (params->colorMode == CenterMass) {
 		float toCenter = pow((spheres[i].center.x() - 50), 2) +
 			pow((spheres[i].center.y() - 50), 2) + pow((spheres[i].center.z() - 50), 2);
 
 		float distance = sqrt(toCenter);
 
-		float percentage = (1.0 / distance) / 100;
+		float percentage = (1.0 / distance * distance);
+
+		printf("%f\n", percentage);
 
 		float brightness = 255 - (255 * percentage);
 
+
 		spheres[i].set_brightness(brightness);
 	}
-	else if (*mode == Speed) {
+	else if (params->colorMode == Speed) {
 
 		float toRoute = pow((spheres[i].center.x() - spheres[i].previous_center.x()), 2) +
 			pow((spheres[i].center.y() - spheres[i].previous_center.y()), 2) + pow((spheres[i].center.z() - spheres[i].previous_center.z()), 2);
 
 		float distance = sqrt(toRoute);
 
-		float percentage = (1.0 / distance) / 100;
+		float percentage = (1.0 / distance * 20) / 100;
 
-		spheres[i].set_brightness(255 * percentage);
+		float color = 255 * percentage;
+
+		spheres[i].set_brightness(color);
 	}
 }
 
@@ -195,6 +200,7 @@ d_render(uchar4 *d_output, uint width, uint height, sphere *spheres)
 	uint y = blockIdx.y * blockDim.y + threadIdx.y;
 	uint i = y * width + x;		
 
+
 	float u = x / (float)width;
 	float v = y / (float)height;
 	u = 2.0*u - 1.0;
@@ -202,12 +208,13 @@ d_render(uchar4 *d_output, uint width, uint height, sphere *spheres)
 	u *= width / height;
 	u *= 2.0;
 	v *= 2.0;
+
 	
 	if ((x < width) && (y < height))
 	{		
 		//for each pixel
 		
-		const vec3 direction = vec3(u, v, -1.5);
+		const vec3 direction = vec3(u, v, -3);
 		for (int j = 0; j < PARTICLE_COUNT; j++)
 		{			
 			spheres[j].norm();
@@ -225,12 +232,11 @@ d_render(uchar4 *d_output, uint width, uint height, sphere *spheres)
 
 // render image using CUDA
 extern "C" 
-void render(int width, int height, dim3 blockSize, dim3 gridSize, uchar4 *output, int deltaTime, ColorMode mode)
+void render(int width, int height, dim3 blockSize, dim3 gridSize, uchar4 *output, const SimulationParams params)
 {
 	sphere *d_spheres = 0;
 	vec3 *d_randoms = 0;
-	int *d_DeltaTime = 0;
-	ColorMode *d_mode = 0;
+	SimulationParams *d_params;
 
 	update_randoms();
 
@@ -243,23 +249,20 @@ void render(int width, int height, dim3 blockSize, dim3 gridSize, uchar4 *output
 
 	checkCudaErrors(cudaMemcpy(d_spheres, spheres, PARTICLE_COUNT * sizeof(sphere), cudaMemcpyHostToDevice));
 
-	checkCudaErrors(cudaMalloc((void **)&d_DeltaTime, sizeof(int)));
+	checkCudaErrors(cudaMalloc((void **)&d_params, sizeof(SimulationParams)));
 
-	checkCudaErrors(cudaMemcpy(d_DeltaTime, &deltaTime, sizeof(int), cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(d_params, &params, sizeof(SimulationParams), cudaMemcpyHostToDevice));
 
-	checkCudaErrors(cudaMalloc((void **)&d_mode, sizeof(ColorMode)));
-
-	checkCudaErrors(cudaMemcpy(d_mode, &mode, sizeof(ColorMode), cudaMemcpyHostToDevice));
 
 	
-	move_particles<<<blocks, threadPerBlock>>>(d_spheres, d_randoms, d_DeltaTime);
+	move_particles<<<blocks, threadPerBlock>>>(d_spheres, d_randoms, d_params);
 
 	checkCudaErrors(cudaGetLastError());
 	checkCudaErrors(cudaDeviceSynchronize());
 
 	if (gravity_enabled)
 	{
-		apply_gravity<<<blocks, threadPerBlock >>>(d_spheres, d_DeltaTime);
+		apply_gravity<<<blocks, threadPerBlock >>>(d_spheres, d_params);
 		checkCudaErrors(cudaGetLastError());
 		checkCudaErrors(cudaDeviceSynchronize());
 	}
@@ -269,7 +272,7 @@ void render(int width, int height, dim3 blockSize, dim3 gridSize, uchar4 *output
 	checkCudaErrors(cudaGetLastError());
 	checkCudaErrors(cudaDeviceSynchronize());
 
-	colour_particles<<<blocks, threadPerBlock >>>(d_mode, d_spheres);
+	colour_particles<<<blocks, threadPerBlock >>>(d_params, d_spheres);
 
 	checkCudaErrors(cudaGetLastError());
 	checkCudaErrors(cudaDeviceSynchronize());
