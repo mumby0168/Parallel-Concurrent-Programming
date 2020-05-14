@@ -18,7 +18,7 @@
 #include "types.h"
 
 
-#define PARTICLE_COUNT 50
+#define PARTICLE_COUNT 150
 
  // includes, cuda
 #include <helper_cuda.h>
@@ -83,6 +83,7 @@ __global__ void move_particles(sphere *spheres, const vec3 *randoms, const Simul
 {	
 	int i = threadIdx.x + (blockDim.x * blockIdx.x);
 	float d = (params->dt) / 1000.0;
+	spheres[i].norm();
 	spheres[i].move(randoms[i].x() * d, randoms[i].y() * d, randoms[i].z() * d);
 }
 
@@ -157,14 +158,11 @@ __global__ void colour_particles(SimulationParams *params, sphere *spheres)
 
 		float percentage = 1 - (distanceToCenter / params->maxCenterDistance);
 
-		printf("perc: %f\n", percentage);
-
-
 		spheres[i].set_brightness(percentage * 255);
 	}
 	else if (params->colorMode == Speed) {
 
-		float percentage = (1.0 / distance * 20) / 100;
+		float percentage = (distance / params->max);
 
 		float color = 255 * percentage;
 
@@ -195,6 +193,11 @@ void freeTexture()
 }
 
 
+__device__ uchar4 get_colour(sphere *spheres, vec3 direction) {
+	
+}
+
+
 __global__ void
 d_render(uchar4 *d_output, uint width, uint height, sphere *spheres)
 {
@@ -202,33 +205,44 @@ d_render(uchar4 *d_output, uint width, uint height, sphere *spheres)
 	uint y = blockIdx.y * blockDim.y + threadIdx.y;
 	uint i = y * width + x;		
 
-
-	float u = x / (float)width;
-	float v = y / (float)height;
-	u = 2.0*u - 1.0;
-	v = -(2.0*v - 1.0);
-	u *= width / height;
-	u *= 2.0;
-	v *= 2.0;
-
 	
 	if ((x < width) && (y < height))
 	{		
 		//for each pixel
+
+		float u = x / (float)width;
+		float v = y / (float)height;
+		u = 2.0*u - 1.0;
+		v = -(2.0*v - 1.0);
+		u *= width / height;
+		u *= 2.0;
+		v *= 2.0;
 		
 		const vec3 direction = vec3(u, v, -3);
+		float a = dot(direction, direction);
+		float r2 = 0.01 * 0.01;
 		for (int j = 0; j < PARTICLE_COUNT; j++)
-		{			
-			spheres[j].norm();
-			if (spheres[j].hit(direction))
-			{				
-				//TODO: This may not be best solution as a particle behind could be rendered first. i.e don't return.
-				d_output[i] = spheres[j].color;		
+		{
+			vec3 oc = spheres[j].normCenter;
+			
+			float b = dot(oc, direction);
+			float c = dot(oc, oc) - r2;
+			float discriminant = b * b - a * c;
+			if (discriminant > 0) {
+				d_output[i] = spheres[j].color;
 				return;
-			}			
+			}
 		}
+
 		d_output[i] = make_uchar4(220, 220, 220, 255);
+		
 	}			
+}
+
+__global__ void free(sphere *d_spheres, vec3 * d_randoms, SimulationParams *d_params) {
+	delete d_spheres;
+	delete d_randoms;
+	delete d_params;
 }
 
 
@@ -236,9 +250,14 @@ d_render(uchar4 *d_output, uint width, uint height, sphere *spheres)
 extern "C" 
 void render(int width, int height, dim3 blockSize, dim3 gridSize, uchar4 *output, const SimulationParams params)
 {
+	cudaEvent_t start, stop;
+	cudaEventCreate(&start);
+	cudaEventCreate(&stop);
 	sphere *d_spheres = 0;
 	vec3 *d_randoms = 0;
 	SimulationParams *d_params;
+
+	
 
 	update_randoms();
 
@@ -255,39 +274,51 @@ void render(int width, int height, dim3 blockSize, dim3 gridSize, uchar4 *output
 
 	checkCudaErrors(cudaMemcpy(d_params, &params, sizeof(SimulationParams), cudaMemcpyHostToDevice));
 
+	cudaEventRecord(start, 0);
 
-	
-	move_particles<<<blocks, threadPerBlock>>>(d_spheres, d_randoms, d_params);
+	move_particles<<<threadPerBlock, blocks>>>(d_spheres, d_randoms, d_params);
 
 	checkCudaErrors(cudaGetLastError());
 	checkCudaErrors(cudaDeviceSynchronize());
 
 	if (gravity_enabled)
 	{
-		apply_gravity<<<blocks, threadPerBlock >>>(d_spheres, d_params);
+		apply_gravity<<<threadPerBlock, blocks >>>(d_spheres, d_params);
 		checkCudaErrors(cudaGetLastError());
 		checkCudaErrors(cudaDeviceSynchronize());
 	}
 
-	bound_particles<<<blocks, threadPerBlock>>>(d_spheres);
+	bound_particles<<<threadPerBlock, blocks>>>(d_spheres);
 
 	checkCudaErrors(cudaGetLastError());
 	checkCudaErrors(cudaDeviceSynchronize());
 
-	colour_particles<<<blocks, threadPerBlock >>>(d_params, d_spheres);
+	colour_particles<<<threadPerBlock, blocks >>>(d_params, d_spheres);
 
 	checkCudaErrors(cudaGetLastError());
 	checkCudaErrors(cudaDeviceSynchronize());
+
+
+	cudaEventRecord(stop, 0);
+
+	cudaEventSynchronize(stop);
+	float elapsedTime;
+	cudaEventElapsedTime(&elapsedTime, start, stop);
+
+	printf("Taken: %f", elapsedTime);
 
 	d_render<<<gridSize, blockSize>>>(output, width, height, d_spheres);
+
+	
 
 	checkCudaErrors(cudaGetLastError());
 	checkCudaErrors(cudaDeviceSynchronize());
 
 	checkCudaErrors(cudaMemcpy(spheres, d_spheres, PARTICLE_COUNT * sizeof(sphere), cudaMemcpyDeviceToHost));
 
-
 	getLastCudaError("kernel failed");
+
+
 }
 
 #endif
