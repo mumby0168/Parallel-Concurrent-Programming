@@ -7,9 +7,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include "Ray.h"
-#include "hitable.h"
-#include "hitable_list.h"
 #include "sphere.h"
 #include "vec3.h"
 #include <time.h>
@@ -168,13 +165,6 @@ __global__ void colour_particles(SimulationParams *params, sphere *spheres)
 
 		spheres[i].set_brightness(color);
 	}
-}
-
-
-__global__ void free_world(hitable **d_list, hitable **d_world) {
-	delete *(d_list);
-	delete *(d_list + 1);
-	delete *d_world;
 }
 
 extern "C"

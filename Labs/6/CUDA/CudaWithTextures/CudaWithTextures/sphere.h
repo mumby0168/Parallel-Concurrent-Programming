@@ -1,7 +1,7 @@
 #ifndef SPHEREH
 #define SPHEREH
 
-#include "hitable.h"
+#include "vec3.h"
 
 class sphere {
 public:
